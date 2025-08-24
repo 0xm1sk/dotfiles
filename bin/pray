@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+CITY="Tunis"
+COUNTRY="Tunisia"
+API="https://api.aladhan.com/v1/timingsByCity?city=$CITY&country=$COUNTRY"
+
+# Get timings JSON
+JSON=$(curl -sL "$API")
+[ -z "$JSON" ] && echo "No Internet" && exit
+
+# Parse prayer times
+Fajr=$(echo "$JSON" | jq -r '.data.timings.Fajr')
+Dhuhr=$(echo "$JSON" | jq -r '.data.timings.Dhuhr')
+Asr=$(echo "$JSON" | jq -r '.data.timings.Asr')
+Maghrib=$(echo "$JSON" | jq -r '.data.timings.Maghrib')
+Isha=$(echo "$JSON" | jq -r '.data.timings.Isha')
+TIMES=("$Fajr" "$Dhuhr" "$Asr" "$Maghrib" "$Isha")
+NAMES=("Fajr" "Dhuhr" "Asr" "Maghrib" "Isha")
+
+# Current time in seconds since midnight
+NOW=$(( $(date +%s) - $(date -d "00:00" +%s) ))
+
+# Find next prayer
+NEXT=""
+for i in "${!TIMES[@]}"; do
+    H=${TIMES[$i]:0:2}
+    M=${TIMES[$i]:3:2}
+    S=${TIMES[$i]:6:2:-1}  # handle cases without seconds
+    [ -z "$S" ] && S=0
+    PRAYER_SEC=$((10#$H*3600 + 10#$M*60 + 10#$S))
+    if (( PRAYER_SEC > NOW )); then
+        DIFF=$((PRAYER_SEC - NOW))
+        NEXT="${NAMES[$i]} $(printf "%02d:%02d:%02d" $((DIFF/3600)) $(( (DIFF%3600)/60 )) $((DIFF%60)))"
+        break
+    fi
+done
+
+# If all prayers passed, show Fajr for next day
+if [ -z "$NEXT" ]; then
+    H=${Fajr:0:2}
+    M=${Fajr:3:2}
+    S=${Fajr:6:2:-1}
+    [ -z "$S" ] && S=0
+    PRAYER_SEC=$((10#$H*3600 + 10#$M*60 + 10#$S))
+    DIFF=$((86400 - NOW + PRAYER_SEC))
+    NEXT="Fajr $(printf "%02d:%02d:%02d" $((DIFF/3600)) $(( (DIFF%3600)/60 )) $((DIFF%60)))"
+fi
+
+echo "[$NEXT]"
