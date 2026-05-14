@@ -5,7 +5,7 @@ pavucontroller
 
 
 
-##this is a dwm setup files 
+## this is a dwm setup files 
 
 
 comming soon ...
